@@ -74,19 +74,19 @@ async def inprogress(callback_query: types.CallbackQuery):
         await bot.send_message(
             chat_id=uid,
             text='Ваш запрос в работе!',
+            #            parse_mode=types.ParseMode.MARKDOWN
         )
-        text_ = callback_query.message.text
-        if text_ and "Выберите действие" in text_:
-            text_ = text_.replace('\n\nВыберите действие', '') + '\n\nИстория действий\n\nℹ️ Запрос в работе!'
-            await bot.edit_message_text(
-                chat_id=callback_query.message.chat.id,
-                message_id=callback_query.message.message_id,
-                text=text_,
-                reply_markup=types.InlineKeyboardMarkup().add(
-                    types.InlineKeyboardButton(text='Решено', callback_data='adm_act_solve_' + str(uid)),
-                    types.InlineKeyboardButton(text='Отклонить', callback_data='adm_act_reject_' + str(uid))
-                )
+        await bot.edit_message_text(
+            chat_id=callback_query.message.chat.id,
+            message_id=callback_query.message.message_id,
+            #            parse_mode=types.ParseMode.MARKDOWN,
+            text=callback_query.message.text.replace('\n\nВыберите действие',
+                                                     '') + '\n\nИстория действий\n\nℹ️ Запрос в работе!',
+            reply_markup=types.InlineKeyboardMarkup().add(
+                types.InlineKeyboardButton(text='Решено', callback_data='adm_act_solve_' + str(uid)),
+                types.InlineKeyboardButton(text='Отклонить', callback_data='adm_act_reject_' + str(uid))
             )
+        )
     elif command[0] == 'solve':
         try:
             del statuses[str(uid)]
@@ -95,15 +95,17 @@ async def inprogress(callback_query: types.CallbackQuery):
         await bot.send_message(
             chat_id=uid,
             text='Ваш запрос решен!',
+            #            parse_mode=types.ParseMode.MARKDOWN
         )
         text_ = callback_query.message.text
-        if text_ and "Выберите действие" in text_:
+        if "Выберите действие" in text_:
             text_ = text_.replace('Выберите действие', 'История действий')
         await bot.edit_message_text(
             chat_id=callback_query.message.chat.id,
             message_id=callback_query.message.message_id,
             text=text_ + '\n✅ Запрос решен!',
             reply_markup=None,
+            #            parse_mode=types.ParseMode.MARKDOWN
         )
     elif command[0] == 'reject':
         try:
@@ -113,15 +115,17 @@ async def inprogress(callback_query: types.CallbackQuery):
         await bot.send_message(
             chat_id=uid,
             text='Ваш запрос отклонен!',
+            #            parse_mode=types.ParseMode.MARKDOWN
         )
         text_ = callback_query.message.text
-        if text_ and "Выберите действие" in text_:
+        if "Выберите действие" in text_:
             text_ = text_.replace('Выберите действие', 'История действий\n\n')
         await bot.edit_message_text(
             chat_id=callback_query.message.chat.id,
             message_id=callback_query.message.message_id,
             text=text_ + '\n❌ Отклонён!',
             reply_markup=None,
+            #            parse_mode=types.ParseMode.MARKDOWN
         )
 
 
