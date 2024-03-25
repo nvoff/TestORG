@@ -1,0 +1,143 @@
+import json
+import asyncio
+from typing import List, Union
+from aiogram.types import InputMediaPhoto
+from aiogram import Bot, Dispatcher, executor, types
+from aiogram.dispatcher.handler import CancelHandler
+from aiogram.dispatcher.middlewares import BaseMiddleware
+
+bot = Bot(
+    token=(''),
+    timeout=1000
+)
+dp = Dispatcher(bot, no_throttle_error=True)
+
+statuses = {}
+
+
+@dp.message_handler(commands=['start'])
+async def start(message: types.Message):
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text='Добро пожаловать в *ORG Бота*!\n\nС его помощью вы можете отправить заявку сотрудникам организационно-технического отдела',
+        #        parse_mode=types.ParseMode.MARKDOWN
+    )
+
+
+@dp.message_handler(content_types=[types.ContentType.PHOTO])
+async def photo_message_handler(message: types.Message, album: List[types.Message] = None):
+    await process_message(message, album)
+
+
+@dp.message_handler(content_types=[types.ContentType.TEXT])
+async def text_message_handler(message: types.Message):
+    await process_message(message)
+
+
+async def process_message(message: types.Message, album: List[types.Message] = None):
+    admin_group = 
+
+    username = message.from_user.username or ""
+    first_name = message.from_user.first_name or ""
+    last_name = message.from_user.last_name or ""
+
+    chat_id = admin_group
+
+    user_text = message.text if message.content_type == types.ContentType.TEXT else message.caption
+    text = f'Обращение: \n\n{user_text}\n\nОтправитель: \n— ID: {message.from_user.id}\n— Telegram: @{username}\n— Name: {first_name} {last_name}'
+    reply_markup = types.InlineKeyboardMarkup().add(
+        types.InlineKeyboardButton(text='В работе', callback_data='adm_act_inprogress_' + str(message.chat.id))
+    ).add(
+        types.InlineKeyboardButton(text='Решено', callback_data='adm_act_solve_' + str(message.chat.id)),
+        types.InlineKeyboardButton(text='Отклонить', callback_data='adm_act_reject_' + str(message.chat.id))
+    )
+
+    if album:
+        media = ([InputMediaPhoto(media=(album[0].photo[0].file_id if len(album) else message.photo[0].file_id),
+                                  caption=text)] +
+                 list(map(lambda a: InputMediaPhoto(media=a.photo[0].file_id), album[1:])))
+        await bot.send_media_group(chat_id=chat_id, media=media)
+    else:
+        await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
+
+
+@dp.callback_query_handler(lambda c: c.data.startswith('adm_act_'))
+async def inprogress(callback_query: types.CallbackQuery):
+    await bot.answer_callback_query(callback_query.id)
+
+    command = callback_query.data.replace('adm_act_', '').split('_')
+
+    uid = int(command[1])
+
+    if command[0] == 'inprogress':
+        statuses[str(uid)] = 'inprogress'
+        await bot.send_message(
+            chat_id=uid,
+            text='Ваш запрос в работе!',
+        )
+        text_ = callback_query.message.text
+        if text_ and "Выберите действие" in text_:
+            text_ = text_.replace('\n\nВыберите действие', '') + '\n\nИстория действий\n\nℹ️ Запрос в работе!'
+            await bot.edit_message_text(
+                chat_id=callback_query.message.chat.id,
+                message_id=callback_query.message.message_id,
+                text=text_,
+                reply_markup=types.InlineKeyboardMarkup().add(
+                    types.InlineKeyboardButton(text='Решено', callback_data='adm_act_solve_' + str(uid)),
+                    types.InlineKeyboardButton(text='Отклонить', callback_data='adm_act_reject_' + str(uid))
+                )
+            )
+    elif command[0] == 'solve':
+        try:
+            del statuses[str(uid)]
+        except:
+            pass
+        await bot.send_message(
+            chat_id=uid,
+            text='Ваш запрос решен!',
+        )
+        text_ = callback_query.message.text
+        if text_ and "Выберите действие" in text_:
+            text_ = text_.replace('Выберите действие', 'История действий')
+        await bot.edit_message_text(
+            chat_id=callback_query.message.chat.id,
+            message_id=callback_query.message.message_id,
+            text=text_ + '\n✅ Запрос решен!',
+            reply_markup=None,
+        )
+    elif command[0] == 'reject':
+        try:
+            del statuses[str(uid)]
+        except:
+            pass
+        await bot.send_message(
+            chat_id=uid,
+            text='Ваш запрос отклонен!',
+        )
+        text_ = callback_query.message.text
+        if text_ and "Выберите действие" in text_:
+            text_ = text_.replace('Выберите действие', 'История действий\n\n')
+        await bot.edit_message_text(
+            chat_id=callback_query.message.chat.id,
+            message_id=callback_query.message.message_id,
+            text=text_ + '\n❌ Отклонён!',
+            reply_markup=None,
+        )
+
+
+class AlbumMiddleware(BaseMiddleware):
+    """This middleware is for capturing media groups."""
+
+    async def on_process_message(self, message: types.Message, data: dict):
+        if not message.media_group_id:
+            return
+
+        try:
+            self.album_data[message.media_group_id].append(message)
+            raise CancelHandler()  # Отмените обработчик для этого медиа-сообщения
+        except KeyError:
+            self.album_data[message.media_group_id] = [message]
+
+
+dp.middleware.setup(AlbumMiddleware())
+executor.start_polling(dp, skip_updates=True, timeout=1000)
