@@ -20,7 +20,6 @@ async def start(message: types.Message):
     await bot.send_message(
         chat_id=message.chat.id,
         text='Добро пожаловать в *ORG Бота*!\n\nС его помощью вы можете отправить заявку сотрудникам организационно-технического отдела',
-        #        parse_mode=types.ParseMode.MARKDOWN
     )
 
 
@@ -74,12 +73,10 @@ async def inprogress(callback_query: types.CallbackQuery):
         await bot.send_message(
             chat_id=uid,
             text='Ваш запрос в работе!',
-            #            parse_mode=types.ParseMode.MARKDOWN
         )
         await bot.edit_message_text(
             chat_id=callback_query.message.chat.id,
             message_id=callback_query.message.message_id,
-            #            parse_mode=types.ParseMode.MARKDOWN,
             text=callback_query.message.text.replace('\n\nВыберите действие',
                                                      '') + '\n\nИстория действий\n\nℹ️ Запрос в работе!',
             reply_markup=types.InlineKeyboardMarkup().add(
@@ -95,7 +92,6 @@ async def inprogress(callback_query: types.CallbackQuery):
         await bot.send_message(
             chat_id=uid,
             text='Ваш запрос решен!',
-            #            parse_mode=types.ParseMode.MARKDOWN
         )
         text_ = callback_query.message.text
         if "Выберите действие" in text_:
@@ -105,7 +101,6 @@ async def inprogress(callback_query: types.CallbackQuery):
             message_id=callback_query.message.message_id,
             text=text_ + '\n✅ Запрос решен!',
             reply_markup=None,
-            #            parse_mode=types.ParseMode.MARKDOWN
         )
     elif command[0] == 'reject':
         try:
@@ -115,7 +110,6 @@ async def inprogress(callback_query: types.CallbackQuery):
         await bot.send_message(
             chat_id=uid,
             text='Ваш запрос отклонен!',
-            #            parse_mode=types.ParseMode.MARKDOWN
         )
         text_ = callback_query.message.text
         if "Выберите действие" in text_:
@@ -125,7 +119,6 @@ async def inprogress(callback_query: types.CallbackQuery):
             message_id=callback_query.message.message_id,
             text=text_ + '\n❌ Отклонён!',
             reply_markup=None,
-            #            parse_mode=types.ParseMode.MARKDOWN
         )
 
 
