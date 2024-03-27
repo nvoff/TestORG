@@ -20,45 +20,46 @@ async def start(message: types.Message):
     await bot.send_message(
         chat_id=message.chat.id,
         text='Добро пожаловать в *ORG Бота*!\n\nС его помощью вы можете отправить заявку сотрудникам организационно-технического отдела',
+        #        parse_mode=types.ParseMode.MARKDOWN
     )
 
 
-@dp.message_handler(content_types=[types.ContentType.PHOTO])
-async def photo_message_handler(message: types.Message, album: List[types.Message] = None):
-    await process_message(message, album)
-
-
-@dp.message_handler(content_types=[types.ContentType.TEXT])
+@dp.message_handler(content_types=types.ContentType.ANY)
 async def text_message_handler(message: types.Message):
-    await process_message(message)
+    await process_message(message) 
 
 
-async def process_message(message: types.Message, album: List[types.Message] = None):
-    admin_group = 
+async def process_message(message: types.Message):
+    admin_group =
 
-    username = message.from_user.username or ""
-    first_name = message.from_user.first_name or ""
-    last_name = message.from_user.last_name or ""
+    if message.chat.id != admin_group:
+        username = message.from_user.username or ""
+        first_name = message.from_user.first_name or ""
+        last_name = message.from_user.last_name or ""
 
-    chat_id = admin_group
+        chat_id = admin_group
 
-    user_text = message.text if message.content_type == types.ContentType.TEXT else message.caption
-    text = f'Обращение: \n\n{user_text}\n\nОтправитель: \n— ID: {message.from_user.id}\n— Telegram: @{username}\n— Name: {first_name} {last_name}'
-    reply_markup = types.InlineKeyboardMarkup().add(
-        types.InlineKeyboardButton(text='В работе', callback_data='adm_act_inprogress_' + str(message.chat.id))
-    ).add(
-        types.InlineKeyboardButton(text='Решено', callback_data='adm_act_solve_' + str(message.chat.id)),
-        types.InlineKeyboardButton(text='Отклонить', callback_data='adm_act_reject_' + str(message.chat.id))
-    )
+        user_text = message.text if message.content_type == types.ContentType.TEXT else message.caption
+        text = f'Обращение: \n\n{user_text}\n\nОтправитель: \n— ID: {message.from_user.id}\n— Telegram: @{username}\n— Name: {first_name} {last_name}'
+        reply_markup = types.InlineKeyboardMarkup().add(
+            types.InlineKeyboardButton(text='В работе', callback_data='adm_act_inprogress_' + str(message.chat.id))
+        ).add(
+            types.InlineKeyboardButton(text='Решено', callback_data='adm_act_solve_' + str(message.chat.id)),
+            types.InlineKeyboardButton(text='Отклонить', callback_data='adm_act_reject_' + str(message.chat.id))
+        )
 
-    if album:
-        media = ([InputMediaPhoto(media=(album[0].photo[0].file_id if len(album) else message.photo[0].file_id),
-                                  caption=text)] +
-                 list(map(lambda a: InputMediaPhoto(media=a.photo[0].file_id), album[1:])))
-        await bot.send_media_group(chat_id=chat_id, media=media)
-    else:
-        await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
-
+        if message.caption:
+            await message.copy_to(chat_id=chat_id, caption=text, reply_markup=reply_markup)
+        else:
+            await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
+    elif message.reply_to_message and message.chat.id == admin_group and message.reply_to_message.from_user.is_bot and message.reply_to_message.reply_markup:
+        markup = message.reply_to_message.reply_markup['inline_keyboard']
+        uid = markup[0][0]['callback_data'].split('_')[3]
+        await bot.send_message(
+                        chat_id=int(uid),
+                        text = "Вопрос от специалиста:\n\n"
+        )
+        await message.copy_to(chat_id=uid)
 
 @dp.callback_query_handler(lambda c: c.data.startswith('adm_act_'))
 async def inprogress(callback_query: types.CallbackQuery):
@@ -73,17 +74,33 @@ async def inprogress(callback_query: types.CallbackQuery):
         await bot.send_message(
             chat_id=uid,
             text='Ваш запрос в работе!',
+            #            parse_mode=types.ParseMode.MARKDOWN
         )
-        await bot.edit_message_text(
-            chat_id=callback_query.message.chat.id,
-            message_id=callback_query.message.message_id,
-            text=callback_query.message.text.replace('\n\nВыберите действие',
-                                                     '') + '\n\nИстория действий\n\nℹ️ Запрос в работе!',
-            reply_markup=types.InlineKeyboardMarkup().add(
-                types.InlineKeyboardButton(text='Решено', callback_data='adm_act_solve_' + str(uid)),
-                types.InlineKeyboardButton(text='Отклонить', callback_data='adm_act_reject_' + str(uid))
+        text_or_caption = callback_query.message.text or callback_query.message.caption
+        text_or_caption = text_or_caption.replace('\n\nВыберите действие', '') \
+            + '\n\nИстория действий\n\nℹ️ Запрос в работе!'
+        if callback_query.message.text:
+            await bot.edit_message_text(
+                chat_id=callback_query.message.chat.id,
+                message_id=callback_query.message.message_id,
+                #            parse_mode=types.ParseMode.MARKDOWN,
+                text=text_or_caption,
+                reply_markup=types.InlineKeyboardMarkup().add(
+                    types.InlineKeyboardButton(text='Решено', callback_data='adm_act_solve_' + str(uid)),
+                    types.InlineKeyboardButton(text='Отклонить', callback_data='adm_act_reject_' + str(uid))
+                )
             )
-        )
+        else:
+            await bot.edit_message_caption(
+                chat_id=callback_query.message.chat.id,
+                message_id=callback_query.message.message_id,
+                #            parse_mode=types.ParseMode.MARKDOWN,
+                caption=text_or_caption,
+                reply_markup=types.InlineKeyboardMarkup().add(
+                    types.InlineKeyboardButton(text='Решено', callback_data='adm_act_solve_' + str(uid)),
+                    types.InlineKeyboardButton(text='Отклонить', callback_data='adm_act_reject_' + str(uid))
+                )
+            )
     elif command[0] == 'solve':
         try:
             del statuses[str(uid)]
@@ -92,16 +109,27 @@ async def inprogress(callback_query: types.CallbackQuery):
         await bot.send_message(
             chat_id=uid,
             text='Ваш запрос решен!',
+            #            parse_mode=types.ParseMode.MARKDOWN
         )
-        text_ = callback_query.message.text
+        text_ = callback_query.message.text or callback_query.message.caption
         if "Выберите действие" in text_:
             text_ = text_.replace('Выберите действие', 'История действий')
-        await bot.edit_message_text(
-            chat_id=callback_query.message.chat.id,
-            message_id=callback_query.message.message_id,
-            text=text_ + '\n✅ Запрос решен!',
-            reply_markup=None,
-        )
+        if callback_query.message.text:
+            await bot.edit_message_text(
+                chat_id=callback_query.message.chat.id,
+                message_id=callback_query.message.message_id,
+                text=text_ + '\n✅ Запрос решен!',
+                reply_markup=None,
+                #            parse_mode=types.ParseMode.MARKDOWN
+            )
+        else:
+            await bot.edit_message_caption(
+                chat_id=callback_query.message.chat.id,
+                message_id=callback_query.message.message_id,
+                caption=text_ + '\n✅ Запрос решен!',
+                reply_markup=None,
+                #            parse_mode=types.ParseMode.MARKDOWN
+            )
     elif command[0] == 'reject':
         try:
             del statuses[str(uid)]
@@ -110,31 +138,26 @@ async def inprogress(callback_query: types.CallbackQuery):
         await bot.send_message(
             chat_id=uid,
             text='Ваш запрос отклонен!',
+            #            parse_mode=types.ParseMode.MARKDOWN
         )
-        text_ = callback_query.message.text
+        text_ = callback_query.message.text or callback_query.message.caption
         if "Выберите действие" in text_:
             text_ = text_.replace('Выберите действие', 'История действий\n\n')
-        await bot.edit_message_text(
-            chat_id=callback_query.message.chat.id,
-            message_id=callback_query.message.message_id,
-            text=text_ + '\n❌ Отклонён!',
-            reply_markup=None,
-        )
+        if callback_query.message.text:
+            await bot.edit_message_text(
+                chat_id=callback_query.message.chat.id,
+                message_id=callback_query.message.message_id,
+                text=text_ + '\n❌ Отклонён!',
+                reply_markup=None,
+                #            parse_mode=types.ParseMode.MARKDOWN
+            )
+        else:
+            await bot.edit_message_caption(
+                chat_id=callback_query.message.chat.id,
+                message_id=callback_query.message.message_id,
+                caption=text_ + '\n❌ Отклонён!',
+                reply_markup=None,
+                #            parse_mode=types.ParseMode.MARKDOWN
+            )
 
-
-class AlbumMiddleware(BaseMiddleware):
-    """This middleware is for capturing media groups."""
-
-    async def on_process_message(self, message: types.Message, data: dict):
-        if not message.media_group_id:
-            return
-
-        try:
-            self.album_data[message.media_group_id].append(message)
-            raise CancelHandler()  # Отмените обработчик для этого медиа-сообщения
-        except KeyError:
-            self.album_data[message.media_group_id] = [message]
-
-
-dp.middleware.setup(AlbumMiddleware())
 executor.start_polling(dp, skip_updates=True, timeout=1000)
