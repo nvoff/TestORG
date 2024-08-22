@@ -30,7 +30,7 @@ async def text_message_handler(message: types.Message):
 
 
 async def process_message(message: types.Message):
-    admin_group =
+    admin_group = -100186
 
     if message.chat.id != admin_group:
         username = message.from_user.username or ""
@@ -48,10 +48,12 @@ async def process_message(message: types.Message):
             types.InlineKeyboardButton(text='Отклонить', callback_data='adm_act_reject_' + str(message.chat.id))
         )
 
-        if message.caption:
-            await message.copy_to(chat_id=chat_id, caption=text, reply_markup=reply_markup)
-        else:
+        if message.text:
             await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
+        else:    
+            await message.copy_to(chat_id=chat_id, caption=text, reply_markup=reply_markup)
+#        else:
+#            await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
     elif message.reply_to_message and message.chat.id == admin_group and message.reply_to_message.from_user.is_bot and message.reply_to_message.reply_markup:
         markup = message.reply_to_message.reply_markup['inline_keyboard']
         uid = markup[0][0]['callback_data'].split('_')[3]
